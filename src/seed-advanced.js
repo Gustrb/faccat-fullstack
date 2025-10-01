@@ -388,3 +388,4 @@ async function seedDatabase() {
 
 // Executar seed
 seedDatabase();
+

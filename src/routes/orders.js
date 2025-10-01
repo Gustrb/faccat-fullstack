@@ -12,3 +12,4 @@ router.get('/admin', authenticateToken, requireAdmin, orderController.getAllOrde
 router.put('/:id/status', authenticateToken, requireAdmin, orderController.updateOrderStatus);
 
 module.exports = router;
+

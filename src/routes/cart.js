@@ -12,3 +12,4 @@ router.put('/update', cartController.updateCartItem);
 router.delete('/remove', cartController.removeFromCart);
 
 module.exports = router;
+

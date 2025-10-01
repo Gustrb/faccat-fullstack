@@ -144,3 +144,4 @@ npm run server:old
 ## 🎉 Resultado
 
 A refatoração transformou um arquivo monolítico em uma arquitetura limpa, organizada e profissional, seguindo as melhores práticas de desenvolvimento de software!
+
