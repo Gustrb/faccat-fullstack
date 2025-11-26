@@ -21,6 +21,9 @@ E-commerce para produtos "meio quebrados" com preços imperdíveis!
 - ✅ **Controle de estoque completo**
 - ✅ **Edição de estoque em tempo real**
 - ✅ **Alertas visuais de estoque baixo**
+- ✅ **Painel com KPIs (vendas do mês, produto destaque, estoque crítico)**
+- ✅ **Relatórios de vendas e financeiro em tabelas exportáveis**
+- ✅ **CRUD completo de fornecedores com vínculo em produtos**
 
 ## 🛠️ Tecnologias
 
@@ -73,6 +76,11 @@ npm run dev
 # Frontend: cd client && npm start
 ```
 
+> 🔐 Variáveis úteis:
+> - `PORT`: porta do backend (padrão 5001)
+> - `SQLITE_DATABASE`: caminho do arquivo SQLite (use `:memory:` para testes)
+> - `REACT_APP_API_URL`: URL da API consumida pelo frontend
+
 ## 🔑 Credenciais de Teste
 
 ### Administrador
@@ -123,6 +131,49 @@ fuckedupcommerce/
 - `npm run client` - Inicia apenas o frontend
 - `npm run build` - Build do frontend para produção
 - `npm run install-all` - Instala dependências do backend e frontend
+- `npm test` - Executa testes unitários do backend com banco em memória
+
+## 📊 Painel & Relatórios do Admin
+
+- Cards com **total de vendas no mês** e **quantidade de pedidos** (somente pedidos ativos)
+- Destaque do **produto mais vendido** por quantidade e receita
+- Lista dinâmica de **produtos com estoque abaixo do limite** (5 unidades por padrão)
+- Tela dedicada de relatórios (`/admin/reports`) com:
+  - Tabela de vendas por mês (3/6/12 meses)
+  - Ranking dos produtos mais vendidos
+  - Resumo financeiro (ticket médio, receita acumulada, pedidos por status)
+- CRUD completo de fornecedores em `/admin/suppliers`, com validação e vínculo direto nos produtos
+
+## 🐳 Executar com Docker
+
+```bash
+# Build e sobe API (5001) + Frontend (3000)
+docker-compose up --build
+
+# Derruba containers
+docker-compose down
+```
+
+Volumes compartilhados:
+- `./database.sqlite` → `/app/database.sqlite`
+- `./uploads` → `/app/uploads`
+
+## 🧪 Testes
+
+- **Stack:** Jest em Node.js
+- **Focus:** Painel do admin (`OrderService.getDashboardMetrics`) e CRUD de fornecedores (`SupplierService`)
+- **Banco:** SQLite em memória (`SQLITE_DATABASE=':memory:'`)
+
+```bash
+SQLITE_DATABASE=':memory:' npm test
+```
+
+## ⚙️ CI/CD
+
+Pipeline GitHub Actions (`.github/workflows/ci.yml`):
+- Instala dependências do backend e executa `npm test`
+- Instala dependências do frontend e roda `npm run build`
+- Garante que toda atualização do repositório execute testes automaticamente
 
 ## 🌐 URLs
 

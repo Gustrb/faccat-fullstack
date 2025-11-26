@@ -1,8 +1,14 @@
 const productRepository = require('../repositories/ProductRepository');
+const supplierRepository = require('../repositories/SupplierRepository');
 
 class ProductService {
   async createProduct(productData) {
-    return await productRepository.create(productData);
+    const supplierId = this.normalizeSupplierId(productData.supplier_id);
+    await this.ensureSupplierExists(supplierId);
+    return await productRepository.create({
+      ...productData,
+      supplier_id: supplierId
+    });
   }
 
   async getAllProducts() {
@@ -18,7 +24,19 @@ class ProductService {
   }
 
   async updateProduct(id, productData) {
-    const updated = await productRepository.update(id, productData);
+    const supplierId =
+      productData.supplier_id !== undefined
+        ? this.normalizeSupplierId(productData.supplier_id)
+        : undefined;
+
+    if (supplierId !== undefined) {
+      await this.ensureSupplierExists(supplierId);
+    }
+
+    const updated = await productRepository.update(id, {
+      ...productData,
+      supplier_id: supplierId
+    });
     if (!updated) {
       throw new Error('Produto não encontrado');
     }
@@ -68,6 +86,30 @@ class ProductService {
       throw new Error('Erro ao restaurar estoque');
     }
     return true;
+  }
+
+  async ensureSupplierExists(supplierId) {
+    if (!supplierId) {
+      return;
+    }
+
+    const supplier = await supplierRepository.findById(supplierId);
+    if (!supplier) {
+      throw new Error('Fornecedor informado não existe');
+    }
+  }
+
+  normalizeSupplierId(value) {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      throw new Error('Fornecedor inválido');
+    }
+
+    return parsed;
   }
 }
 

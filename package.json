@@ -9,7 +9,8 @@
     "server:old": "nodemon server.js",
     "client": "cd client && npm start",
     "build": "cd client && npm run build",
-    "install-all": "npm install && cd client && npm install"
+    "install-all": "npm install && cd client && npm install",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -22,7 +23,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "jest": "^29.7.0"
   },
   "keywords": ["ecommerce", "nodejs", "react", "sqlite"],
   "author": "Gustavo",

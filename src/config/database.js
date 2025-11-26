@@ -1,10 +1,17 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
+const DATABASE_PATH = process.env.SQLITE_DATABASE || 'database.sqlite';
+
 class Database {
   constructor() {
-    this.db = new sqlite3.Database('database.sqlite');
+    this.db = new sqlite3.Database(DATABASE_PATH);
+    this.enableForeignKeys();
     this.initializeTables();
+  }
+
+  enableForeignKeys() {
+    this.db.run('PRAGMA foreign_keys = ON');
   }
 
   initializeTables() {
@@ -19,6 +26,8 @@ class Database {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`);
 
+      this.createSuppliersTable();
+
       // Tabela de produtos
       this.db.run(`CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,8 +38,16 @@ class Database {
         condition_description TEXT,
         image_url TEXT,
         stock INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`);
+        supplier_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL
+      )`, (err) => {
+        if (err) {
+          console.error('Erro ao criar tabela products:', err);
+        } else {
+          this.ensureProductSupplierRelationship();
+        }
+      });
 
       // Tabela de pedidos
       this.db.run(`CREATE TABLE IF NOT EXISTS orders (
@@ -64,6 +81,58 @@ class Database {
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (product_id) REFERENCES products (id)
       )`);
+    });
+  }
+
+  createSuppliersTable() {
+    this.db.run(`CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE,
+      phone TEXT,
+      address TEXT,
+      cnpj TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Erro ao criar tabela suppliers:', err);
+      }
+    });
+  }
+
+  ensureProductSupplierRelationship() {
+    this.ensureColumnExists(
+      'products',
+      'supplier_id',
+      'INTEGER REFERENCES suppliers(id) ON DELETE SET NULL'
+    );
+
+    this.db.run(
+      'CREATE INDEX IF NOT EXISTS idx_products_supplier_id ON products(supplier_id)'
+    );
+  }
+
+  ensureColumnExists(table, column, definition) {
+    this.db.all(`PRAGMA table_info(${table})`, (err, columns) => {
+      if (err) {
+        console.error(`Erro ao inspecionar tabela ${table}:`, err);
+        return;
+      }
+
+      const exists = columns.some((col) => col.name === column);
+      if (!exists) {
+        this.db.run(
+          `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+          (alterErr) => {
+            if (alterErr) {
+              console.error(
+                `Erro ao adicionar coluna ${column} em ${table}:`,
+                alterErr
+              );
+            }
+          }
+        );
+      }
     });
   }
 

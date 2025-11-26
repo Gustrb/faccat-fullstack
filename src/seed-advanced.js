@@ -1,6 +1,38 @@
 const db = require('./config/database');
 const bcrypt = require('bcryptjs');
 
+// Dados fake para fornecedores
+const fakeSuppliers = [
+  {
+    name: 'Tecno Imports',
+    email: 'contato@tecnoimports.com',
+    phone: '+55 11 99999-0001',
+    address: 'Rua das Flores, 123 - São Paulo/SP',
+    cnpj: '12.345.678/0001-90'
+  },
+  {
+    name: 'Gadget Masters',
+    email: 'vendas@gadgetmasters.com',
+    phone: '+55 21 98888-0002',
+    address: 'Av. Atlântica, 456 - Rio de Janeiro/RJ',
+    cnpj: '98.765.432/0001-10'
+  },
+  {
+    name: 'Eletrônicos do Brasil',
+    email: 'suporte@eletronicosbr.com',
+    phone: '+55 31 97777-0003',
+    address: 'Praça Sete, 789 - Belo Horizonte/MG',
+    cnpj: '54.321.987/0001-22'
+  },
+  {
+    name: 'Mercado Digital',
+    email: 'contato@mercadodigital.com',
+    phone: '+55 41 96666-0004',
+    address: 'Rua XV, 1010 - Curitiba/PR',
+    cnpj: '45.678.901/0001-55'
+  }
+];
+
 // Dados fake para usuários
 const fakeUsers = [
   {
@@ -254,6 +286,13 @@ async function seedDatabase() {
     });
     
     await new Promise((resolve, reject) => {
+      db.getConnection().run('DELETE FROM suppliers', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    await new Promise((resolve, reject) => {
       db.getConnection().run('DELETE FROM users', (err) => {
         if (err) reject(err);
         else resolve();
@@ -261,6 +300,31 @@ async function seedDatabase() {
     });
     
     console.log('🗑️ Dados existentes removidos');
+
+    // Inserir fornecedores
+    const supplierIds = [];
+    for (const supplier of fakeSuppliers) {
+      const supplierId = await new Promise((resolve, reject) => {
+        db.getConnection().run(
+          `INSERT INTO suppliers (name, email, phone, address, cnpj)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            supplier.name,
+            supplier.email,
+            supplier.phone,
+            supplier.address,
+            supplier.cnpj
+          ],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+          }
+        );
+      });
+      supplierIds.push(supplierId);
+    }
+    
+    console.log(`🏭 ${supplierIds.length} fornecedores inseridos`);
     
     // Inserir usuários
     for (const user of fakeUsers) {
@@ -283,8 +347,8 @@ async function seedDatabase() {
     for (const product of fakeProducts) {
       await new Promise((resolve, reject) => {
         db.getConnection().run(
-          `INSERT INTO products (name, description, price, original_price, condition_description, image_url, stock) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO products (name, description, price, original_price, condition_description, image_url, stock, supplier_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             product.name,
             product.description,
@@ -292,7 +356,10 @@ async function seedDatabase() {
             product.original_price,
             product.condition_description,
             product.image_url,
-            product.stock
+            product.stock,
+            supplierIds.length
+              ? supplierIds[Math.floor(Math.random() * supplierIds.length)]
+              : null
           ],
           function(err) {
             if (err) reject(err);

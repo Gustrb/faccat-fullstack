@@ -9,6 +9,10 @@ class Product {
     this.image_url = data.image_url;
     this.stock = data.stock || 0;
     this.created_at = data.created_at;
+    this.supplier_id = data.supplier_id || null;
+    this.supplier = data.supplier
+      ? data.supplier
+      : this.mapSupplierFields(data);
   }
 
   toJSON() {
@@ -21,12 +25,29 @@ class Product {
       condition_description: this.condition_description,
       image_url: this.image_url,
       stock: this.stock,
-      created_at: this.created_at
+      created_at: this.created_at,
+      supplier_id: this.supplier_id,
+      supplier: this.supplier
     };
   }
 
   static fromDatabase(data) {
     return new Product(data);
+  }
+
+  mapSupplierFields(data) {
+    if (!data.supplier_id) {
+      return null;
+    }
+
+    return {
+      id: data.supplier_id,
+      name: data.supplier_name || null,
+      email: data.supplier_email || null,
+      phone: data.supplier_phone || null,
+      address: data.supplier_address || null,
+      cnpj: data.supplier_cnpj || null
+    };
   }
 }
 

@@ -37,6 +37,34 @@ class OrderController {
       res.status(400).json({ message: error.message });
     }
   }
+
+  async getDashboardMetrics(req, res) {
+    try {
+      const metrics = await orderService.getDashboardMetrics();
+      res.json(metrics);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  async getSalesReport(req, res) {
+    try {
+      const months = req.query.months ? parseInt(req.query.months, 10) : 6;
+      const report = await orderService.getSalesReport(months);
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  async getFinancialReport(req, res) {
+    try {
+      const report = await orderService.getFinancialReport();
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 }
 
 module.exports = new OrderController();

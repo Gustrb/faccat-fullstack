@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '5001:5001'
+    environment:
+      PORT: 5001
+      SQLITE_DATABASE: database.sqlite
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - '3000:80'
+    depends_on:
+      - api
+    restart: unless-stopped
+

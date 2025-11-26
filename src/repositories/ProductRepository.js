@@ -5,7 +5,16 @@ class ProductRepository {
   async create(productData) {
     return new Promise((resolve, reject) => {
       db.getConnection().run(
-        'INSERT INTO products (name, description, price, original_price, condition_description, image_url, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        `INSERT INTO products (
+          name,
+          description,
+          price,
+          original_price,
+          condition_description,
+          image_url,
+          stock,
+          supplier_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           productData.name,
           productData.description,
@@ -13,7 +22,8 @@ class ProductRepository {
           productData.original_price,
           productData.condition_description,
           productData.image_url,
-          productData.stock
+          productData.stock,
+          productData.supplier_id || null
         ],
         function(err) {
           if (err) {
@@ -29,7 +39,16 @@ class ProductRepository {
   async findAll() {
     return new Promise((resolve, reject) => {
       db.getConnection().all(
-        'SELECT * FROM products ORDER BY created_at DESC',
+        `SELECT 
+          p.*,
+          s.name AS supplier_name,
+          s.email AS supplier_email,
+          s.phone AS supplier_phone,
+          s.address AS supplier_address,
+          s.cnpj AS supplier_cnpj
+        FROM products p
+        LEFT JOIN suppliers s ON s.id = p.supplier_id
+        ORDER BY p.created_at DESC`,
         (err, rows) => {
           if (err) {
             reject(err);
@@ -44,7 +63,16 @@ class ProductRepository {
   async findById(id) {
     return new Promise((resolve, reject) => {
       db.getConnection().get(
-        'SELECT * FROM products WHERE id = ?',
+        `SELECT 
+          p.*,
+          s.name AS supplier_name,
+          s.email AS supplier_email,
+          s.phone AS supplier_phone,
+          s.address AS supplier_address,
+          s.cnpj AS supplier_cnpj
+        FROM products p
+        LEFT JOIN suppliers s ON s.id = p.supplier_id
+        WHERE p.id = ?`,
         [id],
         (err, row) => {
           if (err) {
@@ -89,6 +117,10 @@ class ProductRepository {
       if (productData.stock !== undefined) {
         fields.push('stock = ?');
         values.push(productData.stock);
+      }
+      if (productData.supplier_id !== undefined) {
+        fields.push('supplier_id = ?');
+        values.push(productData.supplier_id || null);
       }
 
       if (fields.length === 0) {
@@ -167,6 +199,49 @@ class ProductRepository {
             reject(err);
           } else {
             resolve(this.changes > 0);
+          }
+        }
+      );
+    });
+  }
+
+  async findLowStockProducts(threshold = 5, limit = 5) {
+    return new Promise((resolve, reject) => {
+      db.getConnection().all(
+        `SELECT 
+          p.*,
+          s.name AS supplier_name,
+          s.email AS supplier_email,
+          s.phone AS supplier_phone,
+          s.address AS supplier_address,
+          s.cnpj AS supplier_cnpj
+        FROM products p
+        LEFT JOIN suppliers s ON s.id = p.supplier_id
+        WHERE p.stock <= ?
+        ORDER BY p.stock ASC
+        LIMIT ?`,
+        [threshold, limit],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows.map((row) => Product.fromDatabase(row)));
+          }
+        }
+      );
+    });
+  }
+
+  async detachSupplierFromProducts(supplierId) {
+    return new Promise((resolve, reject) => {
+      db.getConnection().run(
+        'UPDATE products SET supplier_id = NULL WHERE supplier_id = ?',
+        [supplierId],
+        function(err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(this.changes >= 0);
           }
         }
       );
