@@ -95,3 +95,182 @@ describe('OrderService dashboard metrics', () => {
   });
 });
 
+describe('OrderService reports', () => {
+  beforeEach(async () => {
+    await truncateTables();
+  });
+
+  const setupOrders = async () => {
+    const userId = await insertUser();
+    const supplierId = await insertSupplier();
+
+    const phoneId = await productRepository.create({
+      name: 'Telefone',
+      description: '',
+      price: 800,
+      original_price: 1000,
+      condition_description: '',
+      image_url: null,
+      stock: 10,
+      supplier_id: supplierId
+    });
+
+    const laptopId = await productRepository.create({
+      name: 'Notebook',
+      description: '',
+      price: 2000,
+      original_price: 2500,
+      condition_description: '',
+      image_url: null,
+      stock: 10,
+      supplier_id: supplierId
+    });
+
+    // Mes atual - completed
+    const order1 = await insertOrder(userId, 2800, 'delivered');
+    await insertOrderItem(order1, phoneId, 1, 800);
+    await insertOrderItem(order1, laptopId, 1, 2000);
+
+    // Mes anterior - pending
+    const pastDate = new Date();
+    pastDate.setMonth(pastDate.getMonth() - 1);
+    const formatted = pastDate.toISOString().replace('T', ' ').replace('Z', '');
+    const order2 = await runQuery(
+      'INSERT INTO orders (user_id, total, status, created_at) VALUES (?, ?, ?, ?)',
+      [userId, 1000, 'pending', formatted]
+    );
+    await insertOrderItem(order2, phoneId, 2, 500);
+
+    // Cancelado não deve contar
+    const cancelled = await insertOrder(userId, 500, 'cancelled');
+    await insertOrderItem(cancelled, laptopId, 1, 500);
+
+    return { phoneId, laptopId };
+  };
+
+  test('getSalesReport should include monthly totals and top products', async () => {
+    await setupOrders();
+
+    const report = await orderService.getSalesReport(6);
+
+    expect(report.monthly.length).toBeGreaterThan(0);
+    expect(report.monthly[0]).toHaveProperty('period');
+    expect(report.top_products[0].total_quantity).toBeGreaterThanOrEqual(
+      report.top_products[1]?.total_quantity || 0
+    );
+  });
+
+  test('getFinancialReport should summarize revenue, ticket and statuses', async () => {
+    await setupOrders();
+
+    const report = await orderService.getFinancialReport();
+
+    expect(report.lifetime_revenue).toBe(3800);
+    expect(report.lifetime_orders).toBe(2);
+    expect(report.average_ticket).toBeGreaterThan(0);
+    expect(report.status_totals.find((row) => row.status === 'pending')).toBeDefined();
+    expect(report.cashflow.delivered.total).toBeGreaterThan(0);
+  });
+
+  test('getFinancialReport should handle empty dataset', async () => {
+    const report = await orderService.getFinancialReport();
+    expect(report.lifetime_revenue).toBe(0);
+    expect(report.lifetime_orders).toBe(0);
+    expect(report.status_totals).toEqual([]);
+  });
+});
+
+describe('OrderService stock helpers', () => {
+  beforeEach(async () => {
+    await truncateTables();
+  });
+
+  test('restoreOrderStock re-adds quantities', async () => {
+    const userId = await insertUser();
+    const supplierId = await insertSupplier();
+    const productId = await productRepository.create({
+      name: 'Item restaurar',
+      description: '',
+      price: 10,
+      original_price: null,
+      condition_description: '',
+      image_url: null,
+      stock: 1,
+      supplier_id: supplierId
+    });
+
+    const orderId = await insertOrder(userId, 20, 'cancelled');
+    await insertOrderItem(orderId, productId, 1, 10);
+    await productRepository.updateStock(productId, 0);
+
+    await orderService.restoreOrderStock(orderId);
+    const product = await productRepository.findById(productId);
+    expect(product.stock).toBe(1);
+  });
+
+  test('reduceOrderStock throws when insufficient stock', async () => {
+    const userId = await insertUser();
+    const supplierId = await insertSupplier();
+    const productId = await productRepository.create({
+      name: 'Item reduzir',
+      description: '',
+      price: 10,
+      original_price: null,
+      condition_description: '',
+      image_url: null,
+      stock: 0,
+      supplier_id: supplierId
+    });
+
+    const orderId = await insertOrder(userId, 10, 'pending');
+    await insertOrderItem(orderId, productId, 1, 10);
+
+    await expect(orderService.reduceOrderStock(orderId)).rejects.toThrow(
+      'Estoque insuficiente para reativar pedido'
+    );
+  });
+});
+
+describe('OrderService updateOrderStatus branches', () => {
+  beforeEach(async () => {
+    await truncateTables();
+  });
+
+  const createOrderWithItem = async (status, stock = 5, quantity = 1) => {
+    const userId = await insertUser();
+    const supplierId = await insertSupplier();
+    const productId = await productRepository.create({
+      name: `Produto ${status}`,
+      description: '',
+      price: 10,
+      original_price: null,
+      condition_description: '',
+      image_url: null,
+      stock,
+      supplier_id: supplierId
+    });
+
+    const orderId = await insertOrder(userId, 10 * quantity, status);
+    await insertOrderItem(orderId, productId, quantity, 10);
+    return { orderId, productId };
+  };
+
+  test('updates from pending to cancelled and restores stock', async () => {
+    const { orderId } = await createOrderWithItem('pending');
+    const result = await orderService.updateOrderStatus(orderId, 'cancelled');
+    expect(result.message).toContain('estoque restaurado');
+  });
+
+  test('updates from cancelled to delivered and reduces stock', async () => {
+    const { orderId } = await createOrderWithItem('cancelled', 10);
+    const result = await orderService.updateOrderStatus(orderId, 'delivered');
+    expect(result.message).toContain('estoque reduzido');
+  });
+
+  test('updates between non-cancelled statuses without stock changes', async () => {
+    const { orderId } = await createOrderWithItem('pending');
+    const result = await orderService.updateOrderStatus(orderId, 'delivered');
+    expect(result.message).toBe('Status do pedido atualizado');
+  });
+});
+

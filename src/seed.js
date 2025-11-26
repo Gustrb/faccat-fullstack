@@ -176,7 +176,7 @@ async function seedDatabase() {
         else resolve();
       });
     });
-
+    
     await new Promise((resolve, reject) => {
       db.getConnection().run('DELETE FROM suppliers', (err) => {
         if (err) reject(err);
