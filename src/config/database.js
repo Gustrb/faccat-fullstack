@@ -115,6 +115,9 @@ class Database {
   ensureColumnExists(table, column, definition) {
     this.db.all(`PRAGMA table_info(${table})`, (err, columns) => {
       if (err) {
+        if (err.code === 'SQLITE_MISUSE') {
+          return;
+        }
         console.error(`Erro ao inspecionar tabela ${table}:`, err);
         return;
       }
